@@ -7,6 +7,8 @@
 [![MySQL](https://img.shields.io/badge/MySQL-8.0+-orange.svg)](https://www.mysql.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**Repository**: [https://github.com/nvn0205/student-card-extractor](https://github.com/nvn0205/student-card-extractor)
+
 ---
 
 ## ✨ Tính năng chính
@@ -72,7 +74,7 @@
 ### Bước 1: Clone repository
 
 ```bash
-git clone https://github.com/your-username/student-card-extractor.git
+git clone https://github.com/nvn0205/student-card-extractor.git
 cd student-card-extractor
 ```
 
@@ -404,9 +406,9 @@ mysql -u root -p < database/schema.sql
 
 Mọi đóng góp đều được chào đón! Nếu bạn muốn:
 
-- 🐛 Báo lỗi: Tạo [Issue](../../issues)
-- 💡 Đề xuất tính năng: Tạo [Feature Request](../../issues)
-- 🔧 Submit PR: Fork repo và tạo Pull Request
+- 🐛 Báo lỗi: Tạo [Issue](https://github.com/nvn0205/student-card-extractor/issues)
+- 💡 Đề xuất tính năng: Tạo [Feature Request](https://github.com/nvn0205/student-card-extractor/issues)
+- 🔧 Submit PR: Fork repo và tạo [Pull Request](https://github.com/nvn0205/student-card-extractor/pulls)
 
 ---
 
@@ -431,4 +433,4 @@ Dự án này được phát hành dưới giấy phép [MIT License](LICENSE).
 
 ---
 
-**⭐ Nếu dự án hữu ích, hãy cho một star nhé! ⭐**
+**⭐ Nếu dự án hữu ích, hãy cho một [star](https://github.com/nvn0205/student-card-extractor) nhé! ⭐**
