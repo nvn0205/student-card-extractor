@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+dist/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database
+*.db
+*.sqlite
+
+# Images
+avatars/
+*.jpg
+*.jpeg
+*.png
+*.bmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
