@@ -225,15 +225,24 @@ def parse_ho_ten(text):
     Returns:
         str: Họ tên hoặc None
     """
+    # Danh sách từ cần loại bỏ (tên trường đại học, etc.)
+    exclude_words = [
+        'UNIVERSITY', 'TECHNOLOGY', 'EAST', 'ASIA', 'OF', 'THE', 'AND',
+        'TRƯỜNG', 'ĐẠI', 'HỌC', 'CÔNG', 'NGHỆ', 'ĐÔNG', 'Á',
+        'UNIVERSITY OF TECHNOLOGY', 'EAST ASIA'
+    ]
+    
     # Pattern cho họ tên (thường có dấu tiếng Việt, có thể có dấu &)
     patterns = [
-        r'Họ\s*[&]\s*tên\.?\s*:?\s*([A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s\-]+?)(?:[:|]|\n|Ngày|Mã|Niên|Date|ID|\d{1,2}[/-])',  # Cho phép dấu gạch ngang
+        # Pattern ưu tiên: "Ho & tê" hoặc "Họ & tên" (cho phép typo)
+        r'[\\\/]?\s*Ho\s*[&]\s*t[êe]\.?\s*:?\s*([A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s]+?)(?:\n|Ngày|Mã|Niên|Date|ID|\d{1,2}[/-])',
+        r'Họ\s*[&]\s*tên\.?\s*:?\s*([A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s\-]+?)(?:[:|]|\n|Ngày|Mã|Niên|Date|ID|\d{1,2}[/-])',
         r'Họ\s+[&]\s+tên\.?\s*:?\s*([A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s\-]+?)(?:[:|]|\n|Ngày|Mã|Niên|Date|ID|\d{1,2}[/-])',
         r'Họ\s+tên\.?\s*:?\s*([A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s\-]+?)(?:[:|]|\n|Ngày|Mã|Niên|Date|ID|\d{1,2}[/-])',
         r'Full Name:?\s*([A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s]+?)(?:\n|Date|ID|\d{1,2}[/-])',
         r'Tên:?\s*([A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s]+?)(?:\n|Ngày|Mã|\d{1,2}[/-])',
         # Pattern linh hoạt hơn - tìm "Họ" hoặc "tên" gần nhau
-        r'(?:Họ|Tên)[\s&]*\.?\s*:?\s*([A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s\-]{3,20})',
+        r'(?:Họ|Tên|Ho)[\s&]*\.?\s*:?\s*([A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s\-]{3,30})',
     ]
     
     for pattern in patterns:
@@ -245,50 +254,133 @@ def parse_ho_ten(text):
             name = name.strip()
             # Loại bỏ dấu & nếu có
             name = re.sub(r'\s*&\s*', ' ', name)
-            # Loại bỏ các ký tự đặc biệt và số, nhưng giữ dấu gạch ngang (có thể là tên có dấu -)
+            # Loại bỏ các ký tự đặc biệt và số, nhưng giữ dấu gạch ngang
             name = re.sub(r'[^\w\s\-]', '', name)
             # Thay dấu gạch ngang bằng khoảng trắng
             name = name.replace('-', ' ')
             # Loại bỏ các từ quá ngắn (< 2 ký tự) và chỉ giữ từ có chữ cái
             words = name.split()
-            words = [w for w in words if len(w) >= 2 and re.search(r'[A-Za-z]', w)]
+            words = [w for w in words if len(w) >= 2 and re.search(r'[A-Za-zÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]', w)]
+            
+            # Loại bỏ các từ trong exclude_words
+            words = [w for w in words if w.upper() not in exclude_words]
+            
+            # Loại bỏ các từ ngắn không hợp lệ ở cuối tên (< 3 ký tự và không có dấu tiếng Việt)
+            # Ví dụ: "Se", "N", "E" - những từ này thường là OCR noise
+            if words:
+                # Kiểm tra từ cuối cùng
+                while len(words) > 0:
+                    last_word = words[-1]
+                    # Nếu từ cuối có < 3 ký tự và không chứa dấu tiếng Việt, loại bỏ
+                    if len(last_word) < 3 and not re.search(r'[ÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]', last_word):
+                        words = words[:-1]
+                    else:
+                        break
+            
             if words:
                 name = ' '.join(words)
-                if len(name) > 3:  # Tên phải có ít nhất 3 ký tự
-                    return name
+                # Kiểm tra xem có chứa từ loại trừ không
+                name_upper = name.upper()
+                if not any(exclude in name_upper for exclude in exclude_words):
+                    if len(name) > 3:  # Tên phải có ít nhất 3 ký tự
+                        return name
     
-    # Fallback: Tìm chuỗi chữ hoa dài (có thể là tên)
-    # Tìm tất cả các từ viết hoa (kể cả có ký tự đặc biệt xen kẽ)
-    # Pattern linh hoạt: cho phép ký tự đặc biệt giữa các chữ cái
+    # Fallback: Tìm chuỗi chữ hoa sau "Họ" hoặc "tên"
+    # Tìm vị trí của "Họ" hoặc "tên"
+    ho_ten_positions = []
+    for match in re.finditer(r'Ho\s*[&]?\s*t[êe]|Họ\s*[&]?\s*tên', text, re.IGNORECASE):
+        ho_ten_positions.append(match.end())
+    
+    # Tìm chuỗi chữ hoa ngay sau "Họ & tên"
+    if ho_ten_positions:
+        for pos in ho_ten_positions:
+            # Lấy text sau vị trí "Họ & tên" - tăng lên 150 ký tự để lấy đủ tên dài
+            remaining_text = text[pos:pos+150]  # Lấy 150 ký tự tiếp theo
+            
+            # Tìm chuỗi chữ hoa (2-5 từ) - cho phép tên dài hơn
+            # Pattern linh hoạt hơn, cho phép tên bị cắt hoặc có ký tự lạ
+            name_match = re.search(
+                r'([A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]+(?:\s+[A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]+){1,4})', 
+                remaining_text
+            )
+            if name_match:
+                name = name_match.group(1).strip()
+                # Loại bỏ ký tự đặc biệt
+                name = re.sub(r'[^A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s]', ' ', name)
+                name = ' '.join(name.split())
+                words = name.split()
+                # Loại bỏ các từ trong exclude_words
+                words = [w for w in words if w.upper() not in exclude_words and len(w) >= 2]
+                
+                # Loại bỏ các từ ngắn không hợp lệ ở cuối
+                if words:
+                    while len(words) > 0:
+                        last_word = words[-1]
+                        if len(last_word) < 3 and not re.search(r'[ÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]', last_word):
+                            words = words[:-1]
+                        else:
+                            break
+                
+                if words and len(words) >= 2 and len(words) <= 5:  # Cho phép tên có 5 từ
+                    return ' '.join(words)
+    
+    # Fallback cuối: Tìm tất cả chuỗi chữ hoa, nhưng loại bỏ các từ exclude
     all_uppercase_sequences = re.findall(r'[A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ][A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s\W]*[A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]', text)
     
     # Làm sạch các chuỗi tìm được
     cleaned_sequences = []
     for seq in all_uppercase_sequences:
-        # Loại bỏ ký tự đặc biệt, chỉ giữ chữ cái và khoảng trắng
         cleaned = re.sub(r'[^A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s]', ' ', seq)
-        cleaned = ' '.join(cleaned.split())  # Chuẩn hóa khoảng trắng
+        cleaned = ' '.join(cleaned.split())
         words = cleaned.split()
-        # Lọc các từ có ít nhất 2 ký tự
         valid_words = [w for w in words if len(w) >= 2]
-        if len(valid_words) >= 2:
-            cleaned_sequences.append(' '.join(valid_words[:3]))
+        
+        # Loại bỏ các từ trong exclude_words
+        valid_words = [w for w in valid_words if w.upper() not in exclude_words]
+        
+        # Loại bỏ các từ ngắn không hợp lệ ở cuối (< 3 ký tự, không có dấu tiếng Việt)
+        if valid_words:
+            while len(valid_words) > 0:
+                last_word = valid_words[-1]
+                if len(last_word) < 3 and not re.search(r'[ÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]', last_word):
+                    valid_words = valid_words[:-1]
+                else:
+                    break
+        
+        # Cho phép tên có 2-5 từ (có thể là họ + tên đệm + tên)
+        if len(valid_words) >= 2 and len(valid_words) <= 5:
+            cleaned_sequences.append(' '.join(valid_words))
     
-    # Tìm chuỗi dài nhất có thể là họ tên
+    # Tìm chuỗi tốt nhất (2-5 từ, không chứa từ loại trừ)
     if cleaned_sequences:
-        # Ưu tiên chuỗi có từ 2-4 từ
+        # Ưu tiên chuỗi có từ 2-5 từ, ưu tiên dài hơn một chút (có thể là tên đầy đủ)
+        # Nhưng vẫn loại bỏ chuỗi quá dài (tên trường)
         best = None
         for seq in cleaned_sequences:
             word_count = len(seq.split())
-            if 2 <= word_count <= 4:
-                if best is None or len(seq) > len(best):
-                    best = seq
+            seq_upper = seq.upper()
+            
+            # Bỏ qua nếu chứa từ loại trừ
+            if any(exclude in seq_upper for exclude in exclude_words):
+                continue
+            
+            if 2 <= word_count <= 5:
+                # Ưu tiên chuỗi có 3-4 từ (tên đầy đủ thường có 3-4 từ)
+                # Nhưng không quá dài
+                if len(seq) <= 35:  # Giới hạn độ dài
+                    if best is None:
+                        best = seq
+                    elif word_count == 3 or word_count == 4:
+                        # Ưu tiên 3-4 từ
+                        if len(best.split()) < 3 or len(best.split()) > 4:
+                            best = seq
+                    elif word_count > len(best.split()):
+                        # Nếu cả 2 đều không phải 3-4 từ, ưu tiên dài hơn
+                        if len(seq) < len(best):
+                            best = seq
         
         if best:
             return best
-        
-        # Nếu không có chuỗi 2-4 từ, lấy chuỗi dài nhất
-        return max(cleaned_sequences, key=len)
     
     return None
 
@@ -416,18 +508,28 @@ def parse_nien_khoa(text):
         return nien_khoas_found[0][1]
     
     # Nếu không tìm thấy với pattern, tìm 2 số có 4 chữ số gần nhau
-    all_numbers = re.findall(r'\d{4}', text)  # Tìm tất cả số có 4 chữ số
+    # Tìm tất cả số có 4 chữ số và vị trí của chúng
+    all_year_matches = list(re.finditer(r'\d{4}', text))
+    all_numbers = [m.group() for m in all_year_matches]
+    all_positions = [m.start() for m in all_year_matches]
     
     for i in range(len(all_numbers) - 1):
         year1_str = all_numbers[i]
         year2_str = all_numbers[i + 1]
+        pos1 = all_positions[i]
+        pos2 = all_positions[i + 1]
+        
+        # Kiểm tra khoảng cách giữa 2 năm (phải gần nhau, không quá 20 ký tự)
+        distance = pos2 - pos1 - len(year1_str)
         
         try:
             year1 = int(year1_str)
             year2 = int(year2_str)
             
-            # Kiểm tra xem có phải niên khóa không (năm sau > năm trước, khoảng cách hợp lý)
-            if 2000 <= year1 <= 2100 and year1 < year2 and (year2 - year1) <= 6:
+            # Kiểm tra xem có phải niên khóa không
+            # Cho phép khoảng cách lớn hơn (có thể có ký tự OCR noise giữa)
+            if (2000 <= year1 <= 2100 and year1 < year2 and 
+                (year2 - year1) <= 6 and distance <= 20):
                 nien_khoa = f"{year1}-{year2}"
                 nien_khoas_found.append((year1, nien_khoa))
         except:
@@ -436,6 +538,33 @@ def parse_nien_khoa(text):
     if nien_khoas_found:
         nien_khoas_found.sort(key=lambda x: abs(x[0] - 2022))
         return nien_khoas_found[0][1]
+    
+    # Fallback cuối: Tìm cặp năm gần nhau nhất có thể là niên khóa
+    # Không cần từ khóa "Niên khóa", chỉ cần tìm pattern năm-năm
+    if len(all_numbers) >= 2:
+        candidates = []
+        for i in range(len(all_numbers) - 1):
+            year1_str = all_numbers[i]
+            year2_str = all_numbers[i + 1]
+            
+            try:
+                year1 = int(year1_str)
+                year2 = int(year2_str)
+                
+                # Tìm các cặp năm hợp lý cho niên khóa
+                if (2000 <= year1 <= 2030 and year1 < year2 and 
+                    (year2 - year1) >= 3 and (year2 - year1) <= 7):
+                    # Kiểm tra xem có phải năm gần hiện tại không (2020-2030)
+                    if 2020 <= year1 <= 2030:
+                        nien_khoa = f"{year1}-{year2}"
+                        candidates.append((year1, nien_khoa))
+            except:
+                continue
+        
+        if candidates:
+            # Ưu tiên năm gần 2022
+            candidates.sort(key=lambda x: abs(x[0] - 2022))
+            return candidates[0][1]
     
     return None
 

@@ -56,14 +56,15 @@ def compare_faces(known_encoding, face_encoding_to_check, tolerance=0.6):
     return match, distance
 
 
-def find_matching_students(query_face_encoding, tolerance=0.6, max_results=10):
+def find_matching_students(query_face_encoding, tolerance=0.5, max_results=5):
     """
     Tìm kiếm sinh viên khớp với face encoding
+    Chỉ trả về những kết quả thực sự match hoặc top kết quả tốt nhất
     
     Args:
         query_face_encoding: numpy array - face encoding cần tìm
-        tolerance: float - ngưỡng so sánh
-        max_results: int - số kết quả tối đa
+        tolerance: float - ngưỡng so sánh (mặc định 0.5 - chặt chẽ hơn)
+        max_results: int - số kết quả tối đa (mặc định 5)
     
     Returns:
         list: List of dicts với keys:
@@ -77,7 +78,8 @@ def find_matching_students(query_face_encoding, tolerance=0.6, max_results=10):
     # Lấy tất cả students có face encoding
     students = StudentDAO.get_all_with_encodings()
     
-    results = []
+    matched_results = []  # Kết quả match thực sự
+    all_results = []      # Tất cả kết quả để so sánh
     
     for student in students:
         if student.get('face_encoding') is None:
@@ -90,18 +92,33 @@ def find_matching_students(query_face_encoding, tolerance=0.6, max_results=10):
             tolerance
         )
         
-        # Thêm vào kết quả nếu match hoặc distance nhỏ (top candidates)
-        results.append({
+        result_item = {
             'student': student,
             'distance': distance,
             'match': match
-        })
+        }
+        
+        # Thêm vào all_results để sort
+        all_results.append(result_item)
+        
+        # Chỉ thêm vào matched_results nếu thực sự match
+        if match:
+            matched_results.append(result_item)
     
     # Sắp xếp theo distance (tăng dần - càng nhỏ càng giống)
-    results.sort(key=lambda x: x['distance'])
+    matched_results.sort(key=lambda x: x['distance'])
+    all_results.sort(key=lambda x: x['distance'])
     
-    # Lấy top results
-    return results[:max_results]
+    # Ưu tiên: trả về các kết quả match thực sự
+    if matched_results:
+        return matched_results[:max_results]
+    
+    # Nếu không có kết quả match, chỉ trả về top 1-2 kết quả tốt nhất (nếu distance < 0.7)
+    if all_results and all_results[0]['distance'] < 0.7:
+        return all_results[:min(2, max_results)]
+    
+    # Không có kết quả khả thi
+    return []
 
 
 def search_by_face_image(image, tolerance=0.6, max_results=10):

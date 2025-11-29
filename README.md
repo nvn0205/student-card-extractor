@@ -28,7 +28,11 @@
 ### 💾 Quản lý dữ liệu
 - ✅ **Lưu trữ MySQL**: Dữ liệu được lưu trữ an toàn với đầy đủ indexes
 - ✅ **Tìm kiếm theo tên**: Tìm kiếm nhanh chóng theo tên sinh viên
-- ✅ **Tìm kiếm theo khuôn mặt**: Sử dụng AI để nhận diện và tìm kiếm theo ảnh khuôn mặt
+- ✅ **Tìm kiếm theo khuôn mặt Realtime**: 
+  - 📹 **Camera realtime**: Phát hiện và tìm kiếm khuôn mặt trực tiếp từ camera
+  - 🤖 **Auto-search**: Tự động tìm kiếm khi phát hiện khuôn mặt
+  - 📁 **Upload ảnh**: Tìm kiếm từ file ảnh tải lên
+  - ⚡ **Real-time detection**: Phát hiện khuôn mặt trong thời gian thực với khung hiển thị
 - ✅ **Xem danh sách**: Hiển thị danh sách đầy đủ tất cả sinh viên
 
 ### 🎨 Giao diện người dùng
@@ -61,6 +65,7 @@
 - **MySQL Server**: 8.0 trở lên
 - **Tesseract OCR**: Phiên bản mới nhất
 - **CMake**: Cần thiết cho face-recognition/dlib
+- **Webcam/Camera**: Cho tính năng tìm kiếm realtime (tùy chọn, có thể dùng upload ảnh)
 
 ### Hệ điều hành hỗ trợ
 - ✅ macOS (10.14+)
@@ -180,13 +185,31 @@ python main.py
 
 > 💡 **Mẹo**: Ảnh càng rõ nét, độ chính xác OCR càng cao!
 
-#### 2️⃣ Tìm kiếm sinh viên theo ảnh khuôn mặt
+#### 2️⃣ Tìm kiếm sinh viên theo ảnh khuôn mặt (Camera Realtime)
 
+**Cách 1: Sử dụng Camera Realtime (Khuyến nghị)**
 1. Click vào nút **"Tìm kiếm theo ảnh khuôn mặt"**
-2. Click **"Chọn ảnh khuôn mặt"** và chọn ảnh cần tìm
-3. Click **"Tìm kiếm"** để bắt đầu
-4. Xem danh sách kết quả tìm được (sắp xếp theo độ tương đồng)
+2. Click **"📹 Bật Camera"** để khởi động camera
+3. Đứng trước camera, hệ thống sẽ tự động:
+   - Phát hiện khuôn mặt trong thời gian thực
+   - Vẽ khung xanh quanh khuôn mặt được phát hiện
+   - Tự động tìm kiếm trong database mỗi giây
+4. Xem kết quả tự động hiển thị khi tìm thấy khớp
 5. Click vào một sinh viên trong danh sách để xem chi tiết
+6. Click **"⏹️ Tắt Camera"** khi hoàn thành
+
+**Tùy chọn:**
+- ✅ Bật/tắt **"Tự động tìm kiếm"**: Tự động tìm kiếm khi phát hiện khuôn mặt
+- 📁 **"Chọn ảnh"**: Upload ảnh từ file (phương pháp cũ)
+
+**Cách 2: Tìm kiếm từ file ảnh**
+1. Click vào nút **"Tìm kiếm theo ảnh khuôn mặt"**
+2. Click **"📁 Chọn ảnh"** và chọn ảnh cần tìm
+3. Hệ thống sẽ tự động tìm kiếm và hiển thị kết quả
+4. Xem danh sách kết quả (sắp xếp theo độ tương đồng)
+5. Click vào một sinh viên trong danh sách để xem chi tiết
+
+> 💡 **Mẹo**: Camera realtime hoạt động tốt nhất với ánh sáng đủ và khuôn mặt nhìn thẳng vào camera!
 
 #### 3️⃣ Xem danh sách sinh viên
 
@@ -291,6 +314,11 @@ BTL/
 - **Auto resizing**: Tự động resize ảnh nhỏ để tăng độ chính xác
 - **128-dimensional encoding**: Mã hóa khuôn mặt thành vector 128D
 - **Distance-based matching**: So khớp dựa trên khoảng cách Euclidean
+- **Realtime camera support**: 
+  - Video streaming từ webcam/camera
+  - Face detection overlay với khung xanh
+  - Auto-search mỗi giây khi phát hiện khuôn mặt
+  - Multi-threading để không block UI
 
 ### 🖼️ Image Processing
 - **Automatic card detection**: Tự động phát hiện vùng thẻ
@@ -389,6 +417,19 @@ mysql -u root -p < database/schema.sql
 - Sử dụng ảnh có chất lượng tốt
 - Đảm bảo khuôn mặt rõ ràng, không bị che khuất
 - Code đã tự động resize ảnh nhỏ, nhưng vẫn nên dùng ảnh chất lượng tốt
+- Với camera realtime: đảm bảo đủ ánh sáng và nhìn thẳng vào camera
+
+---
+
+### ❌ Lỗi: Camera không mở được
+**Nguyên nhân**: Camera bị chiếm dụng hoặc không kết nối
+
+**Giải pháp**:
+- Kiểm tra camera đã được kết nối và không bị ứng dụng khác sử dụng
+- Trên macOS: Cấp quyền truy cập camera cho Terminal/Python trong System Preferences
+- Trên Linux: Đảm bảo user có quyền truy cập `/dev/video0`
+- Thử khởi động lại ứng dụng
+- Nếu có nhiều camera, có thể cần chỉnh sửa `cv2.VideoCapture(0)` thành index khác (1, 2, ...)
 
 ---
 
