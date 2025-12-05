@@ -1,149 +1,123 @@
-"""OCR extraction using Tesseract"""
-import pytesseract
+"""OCR extraction using VietOCR (pip package)"""
+from PIL import Image
 import cv2
 import re
 import os
-import platform
-import shutil
 from datetime import datetime
+from vietocr.tool.predictor import Predictor
+from vietocr.tool.config import Cfg
 from ..image_processing.preprocessor import preprocess_for_ocr, enhance_contrast, normalize_image
 
-# Cấu hình đường dẫn Tesseract tự động
-def configure_tesseract_path():
-    """Tự động tìm và cấu hình đường dẫn Tesseract"""
-    # Kiểm tra xem đã cấu hình chưa
-    if hasattr(pytesseract.pytesseract, 'tesseract_cmd') and pytesseract.pytesseract.tesseract_cmd:
-        return
-    
-    # Thử tìm trong PATH trước
-    tesseract_path = shutil.which('tesseract')
-    if tesseract_path:
-        pytesseract.pytesseract.tesseract_cmd = tesseract_path
-        return
-    
-    # Nếu không tìm thấy trong PATH, thử các đường dẫn phổ biến
-    if platform.system() == 'Darwin':  # macOS
-        possible_paths = [
-            '/opt/homebrew/bin/tesseract',
-            '/usr/local/bin/tesseract',
-            '/usr/bin/tesseract'
-        ]
-    elif platform.system() == 'Windows':
-        possible_paths = [
-            r'C:\Program Files\Tesseract-OCR\tesseract.exe',
-            r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe'
-        ]
-    else:  # Linux
-        possible_paths = [
-            '/usr/bin/tesseract',
-            '/usr/local/bin/tesseract'
-        ]
-    
-    for path in possible_paths:
-        if os.path.exists(path):
-            pytesseract.pytesseract.tesseract_cmd = path
-            return
+# Khởi tạo global predictor, dùng cấu hình 'vgg_seq2seq' với pretrained weight
+VIETOCR_PREDICTOR = None
 
-# Cấu hình khi import module
-configure_tesseract_path()
+
+def init_vietocr():
+    """
+    Khởi tạo VietOCR Predictor dùng gói vietocr từ pip.
+    Dùng config 'vgg_seq2seq' (thư viện tự xử lý pretrained weights).
+    """
+    global VIETOCR_PREDICTOR
+    if VIETOCR_PREDICTOR is not None:
+        return VIETOCR_PREDICTOR
+
+    config = Cfg.load_config_from_name("vgg_seq2seq")
+    config["device"] = "cpu"  # chạy CPU cho an toàn
+
+    VIETOCR_PREDICTOR = Predictor(config)
+    print("✓ VietOCR (pip) đã được khởi tạo với cấu hình vgg_seq2seq, device=cpu.")
+    return VIETOCR_PREDICTOR
+
+
+def _detect_text_lines(card_image_bgr):
+    """
+    Tìm các dòng text trên thẻ để OCR từng dòng.
+    Dùng các thao tác đơn giản (threshold + dilation + contour).
+    """
+    gray = cv2.cvtColor(card_image_bgr, cv2.COLOR_BGR2GRAY)
+    gray = enhance_contrast(gray, alpha=1.5)
+
+    # Threshold + invert: chữ trắng trên nền đen
+    _, th = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    th = 255 - th
+
+    # Dilation ngang để gộp các ký tự thành dòng
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (35, 3))
+    dilated = cv2.dilate(th, kernel, iterations=2)
+
+    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    h, w = gray.shape
+    rois = []
+    for cnt in contours:
+        x, y, cw, ch = cv2.boundingRect(cnt)
+
+        # Lọc noise: chỉ giữ những vùng giống dòng text
+        if ch < 15 or cw < int(w * 0.2):
+            continue
+        if ch > int(h * 0.3):
+            continue
+
+        pad = 4
+        y1 = max(0, y - pad)
+        y2 = min(h, y + ch + pad)
+        x1 = max(0, x - 5)
+        x2 = min(w, x + cw + 5)
+
+        rois.append((y1, card_image_bgr[y1:y2, x1:x2].copy()))
+
+    # Sắp xếp từ trên xuống
+    rois.sort(key=lambda item: item[0])
+    return [roi for _, roi in rois]
 
 
 def extract_text(image):
     """
-    Trích xuất text từ ảnh bằng Tesseract OCR
+    Trích xuất text từ ảnh thẻ bằng VietOCR:
+    - Tách các dòng text (ROI)
+    - OCR từng dòng bằng VietOCR
+    - Ghép thành 1 chuỗi text lớn để parser xử lý
     
     Args:
         image: numpy array (BGR image)
     
     Returns:
-        str: Extracted text
+        str: Extracted text (multi-line)
     """
-    all_texts = []
-    
-    # Convert to grayscale if needed
-    if len(image.shape) == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        gray = image.copy()
-    
-    # Với ảnh rõ ràng, thử OCR trực tiếp trên ảnh gốc trước (không preprocessing)
-    # Đôi khi preprocessing làm hỏng ảnh rõ
-    
-    preprocessing_variants = []
-    
-    # 1. Ảnh gốc grayscale (KHÔNG preprocessing) - tốt nhất cho ảnh rõ
-    preprocessing_variants.append(("original_gray", gray))
-    
-    # 2. Resize lớn hơn để OCR đọc tốt hơn (nếu ảnh nhỏ)
-    height, width = gray.shape
-    if width < 800:  # Nếu ảnh nhỏ, resize lên
-        scale = 800 / width
-        large_gray = cv2.resize(gray, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-        preprocessing_variants.append(("large_gray", large_gray))
-    
-    # 3. Grayscale với contrast enhancement nhẹ
-    enhanced_gray = enhance_contrast(gray, alpha=1.2)
-    preprocessing_variants.append(("enhanced_gray", enhanced_gray))
-    
-    # 4. Denoise nhẹ (giữ text rõ)
-    denoised = cv2.bilateralFilter(gray, 5, 50, 50)
-    preprocessing_variants.append(("denoised", denoised))
-    
-    # 5. Binary với OTSU (chỉ dùng khi cần)
-    _, otsu_binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    preprocessing_variants.append(("otsu", otsu_binary))
-    
-    # PSM modes - ưu tiên mode tốt nhất cho thẻ sinh viên
-    psm_modes = [
-        ('--psm 6', 'block'),  # Uniform block of text - TỐT NHẤT cho thẻ
-        ('--psm 4', 'column'),  # Single column
-        ('--psm 3', 'auto'),  # Automatic page segmentation
-        ('--psm 11', 'sparse'),  # Sparse text
-    ]
-    
-    # Thử tất cả các combinations
-    for variant_name, processed_img in preprocessing_variants:
-        for psm_config, psm_name in psm_modes:
-            try:
-                text = pytesseract.image_to_string(
-                    processed_img, 
-                    lang='vie+eng', 
-                    config=psm_config
-                )
-                if text.strip():
-                    all_texts.append((text, variant_name, psm_name))
-            except Exception as e:
-                continue
-    
-    if not all_texts:
-        # Fallback
-        text = pytesseract.image_to_string(gray, lang='vie+eng', config='--psm 6')
-        return text
-    
-    # Đánh giá chất lượng text
-    scored_texts = []
-    for text, variant, psm in all_texts:
-        # Đếm số ký tự hợp lệ (chữ, số, dấu câu)
-        valid_chars = len(re.findall(r'[A-Za-z0-9ÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ\s\.,:;/\-]', text))
-        # Đếm số (có thể là MSSV, ngày)
-        numbers = len(re.findall(r'\d+', text))
-        # Đếm từ có nghĩa (chữ tiếng Việt)
-        words = len(re.findall(r'[A-ZÁÀẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴĐ]{2,}', text))
-        
-        # Bonus cho variant "original_gray" (ưu tiên ảnh gốc)
-        bonus = 100 if variant == "original_gray" else 0
-        score = valid_chars * 1 + numbers * 5 + words * 10 + bonus
-        scored_texts.append((score, text, variant, psm))
-    
-    # Sắp xếp theo score và lấy text tốt nhất
-    scored_texts.sort(key=lambda x: x[0], reverse=True)
-    
-    if scored_texts:
-        best_text = scored_texts[0][1]
-        print(f"✓ Best OCR variant: {scored_texts[0][2]} with PSM {scored_texts[0][3]}, score: {scored_texts[0][0]}")
-        return best_text
-    
-    return all_texts[0][0] if all_texts else ""
+    predictor = init_vietocr()
+
+    # 1) Tách các dòng text trên ảnh thẻ
+    line_images = _detect_text_lines(image)
+
+    # Nếu detect thất bại, dùng cả ảnh gốc như 1 dòng
+    if not line_images:
+        line_images = [image]
+
+    texts = []
+
+    for idx, line_img in enumerate(line_images):
+        try:
+            rgb = cv2.cvtColor(line_img, cv2.COLOR_BGR2RGB)
+            pil_img = Image.fromarray(rgb)
+
+            line_text = predictor.predict(pil_img)
+            if isinstance(line_text, str):
+                line_text = line_text.strip()
+            if line_text:
+                print(f"✓ VietOCR line {idx+1}: {line_text}")
+                texts.append(line_text)
+        except Exception as e:
+            print(f"⚠ Lỗi OCR dòng {idx+1}: {e}")
+
+    full_text = "\n".join(texts).strip()
+    if not full_text:
+        raise RuntimeError("VietOCR không đọc được text nào từ ảnh thẻ.")
+
+    print("\n=== Raw OCR Text (VietOCR, multi-line) ===")
+    print(full_text[:500])
+    print("=======================================\n")
+
+    return full_text
 
 
 def parse_mssv(text):
@@ -232,6 +206,29 @@ def parse_ho_ten(text):
         'UNIVERSITY OF TECHNOLOGY', 'EAST ASIA'
     ]
     
+    # 1) Ưu tiên lấy đúng substring ngay sau label "Họ & tên:"
+    #    Lấy nguyên chuỗi phía sau (không cố chèn/xoá khoảng trắng),
+    #    để giữ đúng output của VietOCR (kể cả khi nó dính chữ như QUANGVANTHIEM).
+    strong_label_pattern = re.search(
+        r'H[ọo]\s*&?\s*t[êe]n\.?\s*:?\s*(.+)',
+        text,
+        re.IGNORECASE
+    )
+    if strong_label_pattern:
+        # Lấy đến hết dòng hiện tại (trước khi xuống dòng hoặc gặp field khác)
+        line = strong_label_pattern.group(1).split('\n')[0]
+        # Cắt bớt phần sau nếu VietOCR dính thêm "Ngày sinh", "Mã SV" trên cùng dòng
+        for stop_word in ['NGÀY', 'MA ', 'MÃ ', 'NIÊN', 'DATE', 'ID', 'DOB']:
+            idx = line.upper().find(stop_word)
+            if idx != -1:
+                line = line[:idx]
+        name = line.strip()
+        # Loại bỏ ký tự rác đầu/cuối nhưng giữ nguyên phần giữa (kể cả không có khoảng trắng)
+        name = re.sub(r'^[^\wÀ-ỹ]+|[^\wÀ-ỹ]+$', '', name)
+        if len(name) >= 3:
+            return name
+
+    # 2) Nếu không bắt được bằng label mạnh, fallback về các pattern cũ
     # Pattern cho họ tên (thường có dấu tiếng Việt, có thể có dấu &)
     patterns = [
         # Pattern ưu tiên: "Ho & tê" hoặc "Họ & tên" (cho phép typo)
@@ -581,9 +578,10 @@ def parse_ngay_het_han(text):
     """
     # Pattern cho thẻ có giá trị đến ngày: 31/12/2027
     patterns = [
-        r':?\s*Th[ẻe]\s+có\s+giá\s+tr[ịrđê]+[^\d]*?ngày:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',  # ": The có giá trrđên ngày:"
-        r'Thẻ\s+có\s+giá\s+tr[ịrđê]+[^\d]*?ngày:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',  # Cho phép typo "trrđên", "trị đến", etc.
-        r':?\s*Th[ẻe]\s+có\s+giá\s+tr[ịrđê]+[^\d]*?:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',  # Không cần "ngày"
+        # Cho phép "trị" / "tri" / OCR noise gần giống
+        r':?\s*Th[ẻe]\s+có\s+giá\s+tr[iịrđê]+[^\d]*?ngày:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
+        r'Thẻ\s+có\s+giá\s+tr[iịrđê]+[^\d]*?ngày:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
+        r':?\s*Th[ẻe]\s+có\s+giá\s+tr[iịrđê]+[^\d]*?:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',  # Không cần "ngày"
         r'Card valid until:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
         r'GOOD THRU:?\s*(\d{1,2}[-/]\d{2,4})',  # Format: 11/28
         r'VALID TO:?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{4})',
@@ -638,6 +636,32 @@ def parse_ngay_het_han(text):
         # Ưu tiên năm trong tương lai (thẻ hết hạn)
         dates_found.sort(key=lambda x: x[0], reverse=True)
         return dates_found[0][1]
+    
+    # Special case: OCR gộp ngày + tháng thành 4 số, dạng 3111/2027
+    # Thực tế trên thẻ thường là 31/12/2027 nhưng OCR đọc nhầm "12" thành "11"
+    special_match = re.search(
+        r'Th[ẻe]\s+có\s+giá\s+tr[iịrđê]+\s+đến\s+ngày:?\s*(\d{4})/(\d{4})',
+        text,
+        re.IGNORECASE,
+    )
+    if special_match:
+        ddmm = special_match.group(1)
+        year_str = special_match.group(2)
+        try:
+            if len(ddmm) == 4:
+                day = int(ddmm[:2])
+                month = int(ddmm[2:])
+                year = int(year_str)
+
+                # Nếu OCR ra 3111 (day=31, month=11) nhưng trên thẻ thực tế là 31/12,
+                # ta sửa lại month thành 12 để tránh ngày không hợp lệ (30 ngày của tháng 11)
+                if day == 31 and month == 11:
+                    month = 12
+
+                if 1 <= day <= 31 and 1 <= month <= 12 and 2020 <= year <= 2100:
+                    return f"{year}-{month:02d}-{day:02d}"
+        except ValueError:
+            pass
     
     # Fallback: Tìm tất cả các ngày có năm > 2020 (có thể là ngày hết hạn)
     # Tránh lấy ngày sinh (thường năm 2000-2010)

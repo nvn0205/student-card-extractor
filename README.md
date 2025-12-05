@@ -1,8 +1,8 @@
 # 📸 Hệ thống trích xuất thông tin từ ảnh thẻ sinh viên
 
-> Ứng dụng desktop Python sử dụng OpenCV, Tesseract OCR và Face Recognition để tự động trích xuất thông tin từ ảnh thẻ sinh viên, lưu trữ vào MySQL và hỗ trợ tìm kiếm thông minh theo ảnh khuôn mặt.
+> Ứng dụng desktop Python sử dụng OpenCV, VietOCR (Deep Learning) và Face Recognition để tự động trích xuất thông tin từ ảnh thẻ sinh viên, lưu trữ vào MySQL và hỗ trợ tìm kiếm thông minh theo ảnh khuôn mặt với camera realtime.
 
-[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![OpenCV](https://img.shields.io/badge/OpenCV-4.8+-green.svg)](https://opencv.org/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0+-orange.svg)](https://www.mysql.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -16,14 +16,18 @@
 ### 🔍 Trích xuất thông tin tự động
 - ✅ **Tiền xử lý ảnh thông minh**: Tự động chỉnh sáng, tương phản, loại bỏ nhiễu
 - ✅ **Phát hiện và cắt thẻ**: Tự động nhận diện vùng thẻ trong ảnh
-- ✅ **OCR đa phương thức**: Sử dụng nhiều thuật toán preprocessing và PSM modes để tối ưu độ chính xác
+- ✅ **OCR Deep Learning với VietOCR**: 
+  - Sử dụng mô hình Transformer OCR (vgg_seq2seq) được huấn luyện trên 10M+ ảnh tiếng Việt
+  - **Tự động tách dòng text**: Phát hiện và OCR từng dòng riêng biệt để tăng độ chính xác
+  - Hỗ trợ tiếng Việt đầy đủ với độ chính xác cao
 - ✅ **Trích xuất đầy đủ thông tin**:
   - 📝 Mã số sinh viên (MSSV)
-  - 👤 Họ và tên
+  - 👤 Họ và tên (với xử lý OCR noise thông minh)
   - 📅 Ngày sinh
   - 🎓 Niên khóa
   - ⏰ Thẻ có giá trị đến ngày
-  - 📸 Ảnh chân dung
+  - 📸 Ảnh chân dung (tự động cắt với padding động để lấy đủ đầu và cổ)
+- ✅ **Loading dialog**: Hiển thị popup "Xin chờ..." khi đang xử lý để người dùng biết hệ thống đang làm việc
 
 ### 💾 Quản lý dữ liệu
 - ✅ **Lưu trữ MySQL**: Dữ liệu được lưu trữ an toàn với đầy đủ indexes
@@ -33,13 +37,15 @@
   - 🤖 **Auto-search**: Tự động tìm kiếm khi phát hiện khuôn mặt
   - 📁 **Upload ảnh**: Tìm kiếm từ file ảnh tải lên
   - ⚡ **Real-time detection**: Phát hiện khuôn mặt trong thời gian thực với khung hiển thị
+  - 🎯 **Smart filtering**: Chỉ hiển thị kết quả thực sự khớp (tolerance 0.5, similarity ≥ 60%)
 - ✅ **Xem danh sách**: Hiển thị danh sách đầy đủ tất cả sinh viên
 
 ### 🎨 Giao diện người dùng
-- ✅ **Desktop GUI thân thiện**: Giao diện Tkinter dễ sử dụng
+- ✅ **Desktop GUI hiện đại**: Giao diện Tkinter với thiết kế card-based, màu sắc nhất quán
 - ✅ **Xem trước thông tin**: Preview thông tin trước khi lưu
-- ✅ **Hiển thị ảnh chân dung**: Xem ảnh chân dung được trích xuất
+- ✅ **Hiển thị ảnh chân dung**: Xem ảnh chân dung được trích xuất với kích thước phù hợp
 - ✅ **Chỉnh sửa thủ công**: Có thể chỉnh sửa thông tin sau khi trích xuất
+- ✅ **Raw OCR text**: Hiển thị text OCR thô để kiểm tra và debug
 
 ---
 
@@ -47,9 +53,10 @@
 
 | Công nghệ | Mô tả |
 |-----------|-------|
-| **Python 3.8+** | Ngôn ngữ lập trình chính |
+| **Python 3.10+** | Ngôn ngữ lập trình chính |
 | **OpenCV** | Xử lý ảnh, phát hiện và tiền xử lý |
-| **Tesseract OCR** | Nhận dạng ký tự quang học (hỗ trợ tiếng Việt) |
+| **VietOCR** | Nhận dạng ký tự quang học bằng Deep Learning (Transformer OCR) |
+| **PyTorch** | Framework Deep Learning cho VietOCR |
 | **face_recognition** | Nhận diện và mã hóa khuôn mặt (dlib-based) |
 | **MySQL** | Cơ sở dữ liệu quan hệ |
 | **Tkinter** | Giao diện desktop |
@@ -61,10 +68,10 @@
 ## 📋 Yêu cầu hệ thống
 
 ### Phần mềm bắt buộc
-- **Python**: 3.8 trở lên
+- **Python**: 3.10 trở lên (khuyến nghị 3.10.x)
 - **MySQL Server**: 8.0 trở lên
-- **Tesseract OCR**: Phiên bản mới nhất
 - **CMake**: Cần thiết cho face-recognition/dlib
+- **PyTorch**: Tự động cài khi cài đặt dependencies
 - **Webcam/Camera**: Cho tính năng tìm kiếm realtime (tùy chọn, có thể dùng upload ảnh)
 
 ### Hệ điều hành hỗ trợ
@@ -83,48 +90,72 @@ git clone https://github.com/nvn0205/student-card-extractor.git
 cd student-card-extractor
 ```
 
-### Bước 2: Cài đặt các công cụ cần thiết
+### Bước 2: Cài đặt Python 3.10
+
+**⚠️ Quan trọng**: Ứng dụng yêu cầu Python 3.10+ để tương thích với VietOCR và các dependencies.
+
+#### Trên macOS:
+```bash
+# Cài đặt Python 3.10 bằng Homebrew
+brew install python@3.10
+
+# Kiểm tra phiên bản
+/opt/homebrew/bin/python3.10 -V
+```
+
+#### Trên Ubuntu/Debian:
+```bash
+sudo apt-get update
+sudo apt-get install python3.10 python3.10-venv python3-pip
+```
+
+#### Trên Windows:
+Tải và cài đặt từ [python.org](https://www.python.org/downloads/) (chọn Python 3.10.x)
+
+### Bước 3: Cài đặt các công cụ cần thiết
 
 #### Trên macOS:
 ```bash
 # Cài đặt CMake (bắt buộc cho face-recognition)
 brew install cmake
-
-# Cài đặt Tesseract OCR
-brew install tesseract
-brew install tesseract-lang  # Hỗ trợ tiếng Việt
 ```
 
 #### Trên Ubuntu/Debian:
 ```bash
-# Cài đặt CMake
 sudo apt-get update
 sudo apt-get install cmake
-
-# Cài đặt Tesseract OCR
-sudo apt-get install tesseract-ocr
-sudo apt-get install tesseract-ocr-vie  # Hỗ trợ tiếng Việt
 ```
 
 #### Trên Windows:
-1. Tải và cài đặt CMake: https://cmake.org/download/
-2. Tải và cài đặt Tesseract OCR: https://github.com/UB-Mannheim/tesseract/wiki
-3. Thêm Tesseract vào PATH hệ thống
+Tải và cài đặt CMake: https://cmake.org/download/
 
-### Bước 3: Cài đặt Python dependencies
+### Bước 4: Cài đặt Python dependencies
+
+**Sử dụng Python 3.10 đã cài ở Bước 2:**
 
 ```bash
-# Cài đặt các package cần thiết
-pip install -r requirements.txt
+# macOS (dùng python3.10 từ Homebrew)
+/opt/homebrew/bin/python3.10 -m pip install --upgrade pip
+/opt/homebrew/bin/python3.10 -m pip install -r requirements.txt
+
+# Ubuntu/Linux (nếu python3.10 là default)
+python3.10 -m pip install --upgrade pip
+python3.10 -m pip install -r requirements.txt
+
+# Windows
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-**Lưu ý**: Nếu gặp lỗi thiếu setuptools hoặc wheel, chạy:
-```bash
-pip install --upgrade setuptools wheel
-pip install -r requirements.txt
-```
+**Lưu ý**: 
+- Lần đầu cài đặt VietOCR sẽ tự động tải pretrained model (~100MB), có thể mất vài phút
+- Nếu gặp lỗi thiếu setuptools hoặc wheel:
+  ```bash
+  pip install --upgrade setuptools wheel
+  pip install -r requirements.txt
+  ```
 
-### Bước 4: Cài đặt và cấu hình MySQL
+### Bước 5: Cài đặt và cấu hình MySQL
 
 #### Tạo database:
 ```bash
@@ -139,7 +170,7 @@ USE student_card_db;
 ```
 
 #### Cấu hình kết nối:
-Chỉnh sửa file `config/database.py`:
+Chỉnh sửa file `src/config/database.py`:
 
 ```python
 DB_CONFIG = {
@@ -159,13 +190,15 @@ DB_CONFIG = {
 
 ### Khởi chạy ứng dụng
 
-Từ thư mục gốc:
-```bash
-python src/main.py
-```
+**Sử dụng Python 3.10 đã cài:**
 
-Hoặc:
 ```bash
+# macOS
+/opt/homebrew/bin/python3.10 main.py
+
+# Linux/Windows (nếu python3.10 là default)
+python3.10 main.py
+# hoặc
 python main.py
 ```
 
@@ -176,14 +209,16 @@ python main.py
 1. Click vào nút **"Trích xuất thông tin"** ở cửa sổ chính
 2. Click **"Chọn ảnh thẻ"** và chọn file ảnh thẻ sinh viên
 3. Click **"Trích xuất thông tin"** để bắt đầu quá trình xử lý
+   - ⏳ Popup "Xin chờ..." sẽ hiển thị trong khi xử lý
 4. Xem trước thông tin đã trích xuất:
    - MSSV, Họ tên, Ngày sinh
    - Niên khóa, Ngày hết hạn
-   - Ảnh chân dung
+   - Ảnh chân dung (hiển thị đầy đủ với kích thước phù hợp)
+   - Raw OCR text (để kiểm tra)
 5. Kiểm tra và chỉnh sửa thông tin nếu cần
 6. Click **"Lưu vào database"** để lưu thông tin
 
-> 💡 **Mẹo**: Ảnh càng rõ nét, độ chính xác OCR càng cao!
+> 💡 **Mẹo**: Ảnh càng rõ nét, độ chính xác OCR càng cao! VietOCR hoạt động tốt nhất với ảnh có độ phân giải cao và đủ ánh sáng.
 
 #### 2️⃣ Tìm kiếm sinh viên theo ảnh khuôn mặt (Camera Realtime)
 
@@ -193,8 +228,11 @@ python main.py
 3. Đứng trước camera, hệ thống sẽ tự động:
    - Phát hiện khuôn mặt trong thời gian thực
    - Vẽ khung xanh quanh khuôn mặt được phát hiện
-   - Tự động tìm kiếm trong database mỗi giây
-4. Xem kết quả tự động hiển thị khi tìm thấy khớp
+   - Tự động tìm kiếm trong database khi phát hiện khuôn mặt (nếu bật auto-search)
+4. Xem kết quả tự động hiển thị khi tìm thấy khớp:
+   - Chỉ hiển thị kết quả thực sự khớp (độ tương đồng ≥ 60%)
+   - Màu xanh nhạt: Khớp chính xác (matched)
+   - Màu vàng nhạt: Tương đồng cao (similar)
 5. Click vào một sinh viên trong danh sách để xem chi tiết
 6. Click **"⏹️ Tắt Camera"** khi hoàn thành
 
@@ -246,7 +284,7 @@ BTL/
 │   │
 │   ├── 📁 extraction/           # Trích xuất dữ liệu
 │   │   ├── __init__.py
-│   │   ├── ocr_extractor.py    # Trích xuất text bằng OCR
+│   │   ├── ocr_extractor.py    # Trích xuất text bằng VietOCR (multi-line)
 │   │   └── face_extractor.py   # Trích xuất ảnh chân dung
 │   │
 │   ├── 📁 database/             # Database operations
@@ -283,10 +321,10 @@ BTL/
 | `mssv` | VARCHAR(20) UNIQUE | Mã số sinh viên |
 | `ho_ten` | VARCHAR(100) | Họ và tên |
 | `ngay_sinh` | DATE | Ngày sinh |
-| `nien_khoa` | VARCHAR(20) | Niên khóa |
+| `nien_khoa` | VARCHAR(20) | Niên khóa (format: YYYY-YYYY) |
 | `ngay_het_han` | DATE | Thẻ có giá trị đến ngày |
 | `avatar_path` | TEXT | Đường dẫn file ảnh chân dung |
-| `face_encoding` | BLOB | Vector mã hóa khuôn mặt |
+| `face_encoding` | BLOB | Vector mã hóa khuôn mặt (128D) |
 | `created_at` | TIMESTAMP | Thời gian tạo record |
 
 ### Indexes
@@ -297,23 +335,32 @@ BTL/
 
 ## ⚙️ Các tính năng kỹ thuật
 
-### 🔬 OCR Engine
-- **Đa phương thức preprocessing**:
-  - Grayscale cơ bản
-  - Enhanced grayscale
-  - OTSU binary threshold
-  - Adaptive threshold
-  - Inverted binary
-  
-- **Multiple PSM modes**: Thử nhiều chế độ PSM (Page Segmentation Mode) để tối ưu
-- **Smart text scoring**: Tự động chọn kết quả OCR tốt nhất
-- **Flexible regex parsing**: Xử lý OCR noise và typo linh hoạt
+### 🔬 OCR Engine (VietOCR)
+
+- **Deep Learning Model**: 
+  - Sử dụng mô hình Transformer OCR (vgg_seq2seq) được huấn luyện trên 10M+ ảnh
+  - Pretrained model tự động tải về khi khởi chạy lần đầu
+  - Độ chính xác cao với tiếng Việt và chữ số
+
+- **Multi-line Text Detection**:
+  - Tự động phát hiện và tách các dòng text trên thẻ
+  - Sử dụng threshold + morphological operations (dilation ngang) để gộp ký tự thành dòng
+  - OCR từng dòng riêng biệt để tăng độ chính xác
+  - Ghép kết quả thành chuỗi multi-line để parser xử lý
+
+- **Smart Text Parsing**:
+  - Regex patterns linh hoạt để xử lý OCR noise và typo
+  - Xử lý đặc biệt cho các trường hợp OCR sai (ví dụ: `3111/2027` → `31/12/2027`)
+  - Ưu tiên lấy substring ngay sau label (ví dụ: "Họ & tên: ...")
+  - Fallback patterns để đảm bảo tìm được thông tin ngay cả khi OCR không hoàn hảo
 
 ### 🤖 Face Recognition
 - **Dual model support**: HOG (nhanh) và CNN (chính xác)
 - **Auto resizing**: Tự động resize ảnh nhỏ để tăng độ chính xác
+- **Dynamic padding**: Padding động dựa trên kích thước khuôn mặt để lấy đủ đầu và cổ
 - **128-dimensional encoding**: Mã hóa khuôn mặt thành vector 128D
 - **Distance-based matching**: So khớp dựa trên khoảng cách Euclidean
+- **Smart filtering**: Chỉ hiển thị kết quả thực sự khớp (tolerance 0.5, similarity ≥ 60%)
 - **Realtime camera support**: 
   - Video streaming từ webcam/camera
   - Face detection overlay với khung xanh
@@ -325,6 +372,7 @@ BTL/
 - **Noise reduction**: Giảm nhiễu ảnh
 - **Contrast enhancement**: Tăng cường độ tương phản
 - **Smart cropping**: Cắt chính xác vùng quan tâm
+- **Text line detection**: Phát hiện và tách các dòng text
 
 ---
 
@@ -347,21 +395,16 @@ pip install -r requirements.txt
 
 ---
 
-### ❌ Lỗi: `tesseract is not installed or it's not in your PATH`
-**Nguyên nhân**: Tesseract OCR chưa được cài đặt hoặc không có trong PATH
+### ❌ Lỗi: `No module named 'torch'` hoặc `No module named 'torchvision'`
+**Nguyên nhân**: Thiếu PyTorch (cần cho VietOCR)
 
 **Giải pháp**:
 ```bash
-# macOS
-brew install tesseract
-brew install tesseract-lang
+# Cài đặt PyTorch và torchvision
+pip install torch torchvision
 
-# Ubuntu/Debian
-sudo apt-get install tesseract-ocr
-sudo apt-get install tesseract-ocr-vie
-
-# Windows: Tải và cài từ https://github.com/UB-Mannheim/tesseract/wiki
-# Sau đó thêm vào PATH hoặc chỉnh sửa trong code
+# Hoặc cài lại toàn bộ dependencies
+pip install -r requirements.txt
 ```
 
 ---
@@ -383,7 +426,7 @@ sudo apt-get install tesseract-ocr-vie
    sudo systemctl start mysql
    ```
 
-2. Kiểm tra file `config/database.py` có đúng thông tin không
+2. Kiểm tra file `src/config/database.py` có đúng thông tin không
 3. Đảm bảo database `student_card_db` đã được tạo
 
 ---
@@ -407,6 +450,7 @@ mysql -u root -p < database/schema.sql
 - Đảm bảo ảnh đủ sáng, rõ nét
 - Tránh bóng, phản quang trên thẻ
 - Chụp ảnh thẳng góc, không bị nghiêng
+- VietOCR hoạt động tốt nhất với ảnh có độ tương phản cao
 
 ---
 
@@ -416,7 +460,7 @@ mysql -u root -p < database/schema.sql
 **Giải pháp**:
 - Sử dụng ảnh có chất lượng tốt
 - Đảm bảo khuôn mặt rõ ràng, không bị che khuất
-- Code đã tự động resize ảnh nhỏ, nhưng vẫn nên dùng ảnh chất lượng tốt
+- Code đã tự động resize ảnh nhỏ và thử cả HOG và CNN model
 - Với camera realtime: đảm bảo đủ ánh sáng và nhìn thẳng vào camera
 
 ---
@@ -433,13 +477,56 @@ mysql -u root -p < database/schema.sql
 
 ---
 
+### ❌ Lỗi: `macOS 26 (2601) or later required`
+**Nguyên nhân**: Đang dùng Python 3.14+ (quá mới, không tương thích với một số dependencies)
+
+**Giải pháp**:
+- Cài đặt Python 3.10.x (khuyến nghị 3.10.14)
+- Sử dụng đúng Python 3.10 để chạy ứng dụng:
+  ```bash
+  # macOS
+  /opt/homebrew/bin/python3.10 main.py
+  
+  # Kiểm tra phiên bản
+  /opt/homebrew/bin/python3.10 -V
+  ```
+
+---
+
 ## 📝 Lưu ý quan trọng
 
+- ✅ **Python Version**: Bắt buộc Python 3.10+ (không dùng 3.14+ vì không tương thích)
 - ✅ **Ảnh chất lượng**: Ảnh thẻ càng rõ nét, độ chính xác OCR càng cao
-- ✅ **Tiếng Việt**: Cần cài đặt Tesseract với hỗ trợ tiếng Việt (`tesseract-lang`)
+- ✅ **VietOCR**: Model sẽ tự động tải về lần đầu chạy (~100MB), có thể mất vài phút
 - ✅ **Hiệu năng**: Face recognition sử dụng CNN model có thể chậm hơn, nhưng chính xác hơn
 - ✅ **MySQL**: Đảm bảo MySQL đang chạy trước khi sử dụng ứng dụng
 - ✅ **Backup**: Nên backup database thường xuyên
+- ✅ **Multi-line OCR**: VietOCR tự động tách và OCR từng dòng, giúp tăng độ chính xác đáng kể
+
+---
+
+## 🔄 Quy trình hoạt động chi tiết
+
+### Luồng trích xuất thông tin
+
+1. **Chọn ảnh** → Load ảnh bằng OpenCV, resize để preview
+2. **Detect thẻ** → Tự động phát hiện vùng thẻ (nếu chụp cả mặt bàn)
+3. **Tách dòng text** → Dùng threshold + dilation để phát hiện các dòng text
+4. **OCR từng dòng** → VietOCR nhận diện từng dòng riêng biệt
+5. **Ghép kết quả** → Tạo chuỗi multi-line text
+6. **Parse thông tin** → Regex patterns để trích xuất MSSV, Họ tên, Ngày sinh, Niên khóa, Ngày hết hạn
+7. **Trích xuất ảnh chân dung** → Face detection với padding động
+8. **Hiển thị & chỉnh sửa** → Người dùng có thể chỉnh sửa trước khi lưu
+9. **Lưu vào DB** → Lưu thông tin + ảnh chân dung + face encoding
+
+### Luồng tìm kiếm khuôn mặt
+
+1. **Bật camera** → Stream video từ webcam
+2. **Detect khuôn mặt** → Face detection trong mỗi frame
+3. **Encode khuôn mặt** → Tạo 128D vector
+4. **So khớp** → Tính distance với tất cả face encodings trong DB
+5. **Filter kết quả** → Chỉ hiển thị kết quả khớp (tolerance 0.5, similarity ≥ 60%)
+6. **Hiển thị** → Danh sách kết quả với độ tương đồng
 
 ---
 
@@ -468,9 +555,10 @@ Dự án này được phát hành dưới giấy phép [MIT License](LICENSE).
 ## 🙏 Lời cảm ơn
 
 - [OpenCV](https://opencv.org/) - Thư viện xử lý ảnh
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) - Công cụ OCR
+- [VietOCR](https://github.com/pbcquoc/vietocr) - Công cụ OCR Deep Learning cho tiếng Việt
 - [face_recognition](https://github.com/ageitgey/face_recognition) - Thư viện nhận diện khuôn mặt
 - [dlib](http://dlib.net/) - Machine learning library
+- [PyTorch](https://pytorch.org/) - Deep learning framework
 
 ---
 
